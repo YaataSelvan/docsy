@@ -50,7 +50,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Purdue CYAN Lab'
+project = os.environ.get("PROJECT_NAME", "Docsy")
 copyright = u'2020-{}, Purdue CYAN Lab & Contributors'.format(
     datetime.date.today().year
 )
@@ -122,7 +122,7 @@ pygments_style = 'monokai'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+html_theme = os.environ.get("SPHINX_THEME","sphinx_rtd_theme")
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

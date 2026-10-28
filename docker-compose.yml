@@ -1,0 +1,108 @@
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: docsy-builder:latest
+    working_dir: /work
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME:-Docsy}
+      SPHINX_THEME: ${SPHINX_THEME:-sphinx_rtd_theme}
+    command:
+      - sh
+      - -c
+      - |
+        rm -f /site/index.html &&
+        sphinx-build -W -b html -d /tmp/doctrees docs/source /site &&
+        exec sleep infinity
+    volumes:
+      - .:/work:ro
+      - site:/site
+    networks:
+      - docs
+    healthcheck:
+      test: ["CMD", "test", "-f", "/site/index.html"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+
+  web:
+    image: nginx:1.27-alpine
+    ports:
+      - "${DOCS_PORT:-8080}:80"
+    volumes:
+      - site:/site:ro
+      - ops:/var/cache/nginx
+      - ./ops/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - docs
+    depends_on:
+      builder:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  dev:
+    image: docsy-builder:latest
+    pull_policy: never
+    profiles: ["dev"]
+    working_dir: /work
+    environment:
+      BUILD_DIR: /site
+      PROJECT_NAME: ${PROJECT_NAME:-Docsy}
+      SPHINX_THEME: ${SPHINX_THEME:-sphinx_rtd_theme}
+    command: >
+      sh -c "sphinx-autobuild --host 0.0.0.0 --port 8000
+      -d /tmp/doctrees docs/source $${BUILD_DIR}"
+    volumes:
+      - .:/work:ro
+      - site:/site
+    ports:
+      - "8000:8000"
+    depends_on:
+      builder:
+        condition: service_healthy
+    networks:
+      - docs
+
+  dozzle:
+    image: amir20/dozzle:v10.10.0
+    profiles: ["obs"]
+    ports:
+      - "127.0.0.1:9000:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      web:
+        condition: service_started
+    networks:
+      - docs
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.60.5
+    profiles: ["obs"]
+    privileged: true
+    devices:
+      - /dev/kmsg
+    ports:
+      - "127.0.0.1:9100:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - docs
+
+
+volumes:
+  site:
+  ops:
+
+networks:
+  docs:

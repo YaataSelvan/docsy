@@ -18,6 +18,8 @@ Welcome to Docsy!
    main/add-code
    main/authors
    main/changelog
+   main/compose-overview
+   main/compose-workflow
 
 
 .. Indices and tables

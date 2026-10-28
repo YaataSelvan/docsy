@@ -173,3 +173,117 @@ connected Read the Docs project.
 
 This project is licensed under the **GNU General Public License v3.0**. See
 [`LICENSE`](LICENSE) for details.
+
+
+## Docker Compose Lab
+
+### Prerequisites
+
+- Docker Engine and Docker Compose supporting `!override`
+- Git and GNU Make
+- Run all commands from the repository root.
+
+### Environment configuration
+
+Create a local `.env` file:
+
+```dotenv
+DOCS_PORT=8080
+PROJECT_NAME=Docsy
+SPHINX_THEME=sphinx_rtd_theme
+```
+
+The `.env` file is ignored by Git and must not be committed.
+
+### Services and storage
+
+- `builder`: builds Sphinx HTML into the `site` volume and remains running
+  for its health check.
+- `web`: serves the generated HTML with Nginx after builder becomes healthy.
+- `dev`: provides live reload through the `dev` profile.
+- `dozzle`: displays container console logs through the `obs` profile.
+- `cadvisor`: displays container metrics through the `obs` profile.
+
+The repository is mounted read-only at `/work`.
+Nginx configuration is bind-mounted read-only.
+Named volumes store generated HTML (`site`), Nginx cache (`ops`),
+and Nginx logs (`weblogs`, enabled by the override).
+
+### Commands
+
+| Command | Behavior |
+|---|---|
+| `make up` | Build and start the base services |
+| `make prod` | Activate the prod profile and start the base services |
+| `make dev` | Start the base services and live-reload service |
+| `make obs` | Start the base services and observability services |
+| `make down` | Remove containers and network, retaining volumes |
+| `make logs` | Follow service logs; Ctrl+C exits log viewing |
+| `make clean` | Remove containers, network, and named volumes |
+
+Builder and web are unprofiled and always start.
+Optional services already running remain running when another profile
+is started. For a base-only production session, run `make down`
+followed by `make prod`.
+
+### Access URLs
+
+On the Docker host:
+
+- Documentation: http://localhost:8081
+- Live reload: http://localhost:8000
+- Dozzle: http://localhost:9000
+- cAdvisor: http://localhost:9100
+
+Dozzle and cAdvisor bind to host loopback only.
+For remote access, run this on your own computer, replacing USER and HOST:
+
+```bash
+ssh -N \
+  -L 8081:127.0.0.1:8081 \
+  -L 8000:127.0.0.1:8000 \
+  -L 9000:127.0.0.1:9000 \
+  -L 9100:127.0.0.1:9100 \
+  USER@HOST
+```
+
+### Override behavior
+
+`docker-compose.override.yml` is loaded automatically.
+It replaces the web port with 8081 and adds persistent Nginx logs.
+
+To use DOCS_PORT from `.env` without the override:
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+To restore the override:
+
+```bash
+docker compose up -d
+```
+
+### Validation
+
+```bash
+docker compose --profile "*" config --quiet
+docker compose --profile "*" ps
+curl -fsS http://localhost:8081/
+docker compose exec web tail /var/log/nginx/docsy-access.log
+```
+
+Builder checks for `/site/index.html`.
+Web checks HTTP on container port 80.
+Nginx listens on IPv4 and IPv6 so its localhost health check works.
+
+Edit a documentation page while `make dev` is active and confirm
+the browser updates automatically.
+
+Dozzle displays container console output. Custom Nginx access logs
+are stored at `/var/log/nginx/docsy-access.log`.
+
+### Added documentation
+
+- Docker Compose Overview
+- Documentation Development Workflow

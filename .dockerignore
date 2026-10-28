@@ -1,0 +1,9 @@
+.git
+.venv/
+docs/build/
+**/__pycache__/
+*.pyc
+.env
+submission/
+*.tar.gz
+.dockerignore.lab3
